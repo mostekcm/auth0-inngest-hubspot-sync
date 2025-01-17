@@ -1,7 +1,8 @@
 import { setLastEventDate } from "@/services/redis";
-import type { NextApiRequest, NextApiResponse } from "next";
 
-export const POST = async (req: NextApiRequest, res: NextApiResponse<void>) => {
+export const POST = async () => {
   await setLastEventDate();
-  return res.status(204).send();
+  return new Response(null, {
+    status: 204,
+  });
 };
