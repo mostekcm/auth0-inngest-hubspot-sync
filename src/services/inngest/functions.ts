@@ -10,8 +10,9 @@ import {
   UserEvent,
 } from "../hubspot";
 
-const validateApiKey = async (authorizeHeader: string) => {
-  if (authorizeHeader !== `Bearer ${process.env.API_TOKEN}`) {
+const validateApiKey = async (headers: { [key: string]: string }) => {
+  if (headers.Authorization !== `Bearer ${process.env.API_TOKEN}`) {
+    console.log("Headers: ", headers.Authorization);
     throw new NonRetriableError("failed token validation");
   }
 };
@@ -24,7 +25,7 @@ export const handleAuth0Event = client.createFunction(
   },
   async ({ event, step }) => {
     await step.run("check-api-key", async () => {
-      return await validateApiKey(event.data.authorizeHeader);
+      return await validateApiKey(event.data.headers);
     });
 
     let response = {};
