@@ -15,7 +15,7 @@ export interface UserEvent {
       created_at?: string;
       email?: string;
       email_verified?: boolean;
-      identities?: any[];
+      identities?: any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
       name?: string;
       nickname?: "mostekcm_test_hubspot_before_processevents_1";
       picture?: string;
@@ -23,7 +23,7 @@ export interface UserEvent {
       user_id: string;
       user_metadata?: {
         locale?: string;
-        [key: string]: any;
+        [key: string]: any; // eslint-disable-line @typescript-eslint/no-explicit-any
       };
     };
   };

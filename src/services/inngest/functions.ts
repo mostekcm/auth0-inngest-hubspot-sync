@@ -91,7 +91,7 @@ export const handleAuth0Event = client.createFunction(
         return (response = {
           message: "User event processed successfully",
         });
-      } catch (e: any) {
+      } catch (e: unknown) {
         if (e instanceof Error) {
           console.error("Failed to process event", e, event);
           console.error(e.message);
