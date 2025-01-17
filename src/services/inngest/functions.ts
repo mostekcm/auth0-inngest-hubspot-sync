@@ -13,7 +13,7 @@ import {
 const validateApiKey = async (headers: { [key: string]: string }) => {
   for (const key in headers) {
     if (key.toLowerCase() === "authorization") {
-      return false; //headers[key] === `Bearer ${process.env.API_TOKEN}`;
+      return headers[key] === `Bearer ${process.env.API_TOKEN}`;
     }
   }
 
