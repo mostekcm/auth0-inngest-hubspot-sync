@@ -11,7 +11,15 @@ import {
 } from "../hubspot";
 
 const validateApiKey = async (headers: { [key: string]: string }) => {
-  if (headers.Authorization !== `Bearer ${process.env.API_TOKEN}`) {
+  let verified = false;
+  for (const key in headers) {
+    if (key.toLowerCase() === "authorization") {
+      verified =
+        headers[key].toLowerCase() === `Bearer ${process.env.API_TOKEN}`;
+      break;
+    }
+  }
+  if (!verified) {
     console.log("Headers: ", headers.Authorization);
     throw new NonRetriableError("failed token validation");
   }
