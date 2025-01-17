@@ -11,17 +11,13 @@ import {
 } from "../hubspot";
 
 const validateApiKey = async (headers: { [key: string]: string }) => {
-  let verified = false;
   for (const key in headers) {
     if (key.toLowerCase() === "authorization") {
-      verified = headers[key] === `Bearer ${process.env.API_TOKEN}`;
-      break;
+      return false; //headers[key] === `Bearer ${process.env.API_TOKEN}`;
     }
   }
-  if (!verified) {
-    console.log("Headers: ", headers.Authorization);
-    throw new NonRetriableError("failed token validation");
-  }
+
+  return false;
 };
 
 export const handleAuth0Event = client.createFunction(
@@ -31,9 +27,17 @@ export const handleAuth0Event = client.createFunction(
     retries: 10, // this will retry for hours, can set to much longer if we need to retry for weeks, though there's likely a better way to handle this...
   },
   async ({ event, step }) => {
-    await step.run("check-api-key", async () => {
+    const verified = await step.run("check-api-key", async () => {
       return await validateApiKey(event.data.headers);
     });
+    if (!verified) {
+      // WARN: in production you wouldn't want to log or return the API token in the error!!!
+      console.log("Headers: ", event.data.headers);
+      throw new NonRetriableError(
+        "failed token validation: " +
+          JSON.stringify(event.data.headers, null, 2)
+      );
+    }
 
     let response = {};
 
