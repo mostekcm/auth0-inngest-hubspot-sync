@@ -14,8 +14,7 @@ const validateApiKey = async (headers: { [key: string]: string }) => {
   let verified = false;
   for (const key in headers) {
     if (key.toLowerCase() === "authorization") {
-      verified =
-        headers[key].toLowerCase() === `Bearer ${process.env.API_TOKEN}`;
+      verified = headers[key] === `Bearer ${process.env.API_TOKEN}`;
       break;
     }
   }
