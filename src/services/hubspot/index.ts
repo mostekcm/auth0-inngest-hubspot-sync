@@ -29,7 +29,7 @@ export interface UserEvent {
   };
 }
 
-interface User {
+export interface User {
   id: string;
   email: string;
   auth0_id: string;
@@ -70,102 +70,109 @@ const getHubspotClient = () => {
   return _hubspotClient;
 };
 
-export const getUser = async (userEvent: UserEvent): Promise<User | null> => {
-  const hubspotClient = getHubspotClient();
-  const searchByAuth0Ids: PublicObjectSearchRequest = {
-    filterGroups: [
-      {
-        filters: [
-          {
-            propertyName: "auth0_id",
-            operator: FilterOperatorEnum.Eq,
-            value: userEvent.data.object.user_id,
-          },
-        ],
-      },
-    ],
-    properties: [
-      "email",
-      "auth0_id",
-      "notes_last_updated",
-      "auth0_locale",
-      "auth0_last_event_timestamp",
-    ],
-    after: "0",
-  };
-
-  const response = await hubspotClient.crm.contacts.searchApi.doSearch(
-    searchByAuth0Ids
-  );
-
-  if (response.total === 0) {
-    // user doesn't exist yet, return null
-    return null;
+export class HubspotClientService {
+  client: Client;
+  constructor() {
+    this.client = getHubspotClient();
   }
 
-  if (response.total > 1) {
-    console.warn(
-      "Got more than one user for user_id: ",
-      userEvent.data.object.user_id
+  async getUser(userEvent: UserEvent): Promise<User | null> {
+    const hubspotClient = getHubspotClient();
+    const searchByAuth0Ids: PublicObjectSearchRequest = {
+      filterGroups: [
+        {
+          filters: [
+            {
+              propertyName: "auth0_id",
+              operator: FilterOperatorEnum.Eq,
+              value: userEvent.data.object.user_id,
+            },
+          ],
+        },
+      ],
+      properties: [
+        "email",
+        "auth0_id",
+        "notes_last_updated",
+        "auth0_locale",
+        "auth0_last_event_timestamp",
+      ],
+      after: "0",
+    };
+
+    const response = await hubspotClient.crm.contacts.searchApi.doSearch(
+      searchByAuth0Ids
     );
+
+    if (response.total === 0) {
+      // user doesn't exist yet, return null
+      return null;
+    }
+
+    if (response.total > 1) {
+      console.warn(
+        "Got more than one user for user_id: ",
+        userEvent.data.object.user_id
+      );
+    }
+
+    const user = response.results[0];
+    return {
+      id: user.id,
+      ...user.properties,
+    } as User;
   }
 
-  const user = response.results[0];
-  return {
-    id: user.id,
-    ...user.properties,
-  } as User;
-};
+  async createUser(userEvent: UserEvent) {
+    const hubspotClient = getHubspotClient();
+    const lastEventTimestamp = new Date(userEvent.time).getTime().toString();
+    const contactObj = {
+      properties: {
+        email: userEvent.data.object.email || "bad email in contactObj",
+        auth0_id: userEvent.data.object.user_id,
+        auth0_locale:
+          userEvent.data.object.user_metadata?.locale ||
+          "bad auth0_locale_in_contact_obj",
+        auth0_last_event_timestamp: lastEventTimestamp,
+      },
+    };
 
-export const createUser = async (userEvent: UserEvent) => {
-  const hubspotClient = getHubspotClient();
-  const lastEventTimestamp = new Date(userEvent.time).getTime().toString();
-  const contactObj = {
-    properties: {
-      email: userEvent.data.object.email || "bad email in contactObj",
-      auth0_id: userEvent.data.object.user_id,
-      auth0_locale:
-        userEvent.data.object.user_metadata?.locale ||
-        "bad auth0_locale_in_contact_obj",
-      auth0_last_event_timestamp: lastEventTimestamp,
-    },
-  };
+    await hubspotClient.crm.contacts.basicApi.create(contactObj);
+    // will throw an exception if it fails
+    console.log("Done creating");
+  }
 
-  await hubspotClient.crm.contacts.basicApi.create(contactObj);
-  // will throw an exception if it fails
-  console.log("Done creating");
-};
+  async updateUser(user: User, userEvent: UserEvent) {
+    const hubspotClient = getHubspotClient();
 
-export const updateUser = async (user: User, userEvent: UserEvent) => {
-  const hubspotClient = getHubspotClient();
+    // check for actual updates here instead of just blindly sending all properties
+    const properties = {
+      ...(user.email !== userEvent.data.object.email
+        ? { email: userEvent.data.object.email }
+        : {}),
+      ...(user.auth0_last_event_timestamp !==
+      new Date(userEvent.time).getTime().toString()
+        ? {
+            auth0_last_event_timestamp: new Date(userEvent.time)
+              .getTime()
+              .toString(),
+          }
+        : {}),
+      ...(user.auth0_locale !== userEvent.data.object.user_metadata?.locale
+        ? { auth0_locale: userEvent.data.object.user_metadata?.locale }
+        : {}),
+    };
 
-  // check for actual updates here instead of just blindly sending all properties
-  const properties = {
-    ...(user.email !== userEvent.data.object.email
-      ? { email: userEvent.data.object.email }
-      : {}),
-    ...(user.auth0_last_event_timestamp !==
-    new Date(userEvent.time).getTime().toString()
-      ? {
-          auth0_last_event_timestamp: new Date(userEvent.time)
-            .getTime()
-            .toString(),
-        }
-      : {}),
-    ...(user.auth0_locale !== userEvent.data.object.user_metadata?.locale
-      ? { auth0_locale: userEvent.data.object.user_metadata?.locale }
-      : {}),
-  };
+    await hubspotClient.crm.contacts.basicApi.update(user.id, { properties });
+    // will throw an exception if it fails
+    console.log("Done updating: ", Object.keys(properties).join(", "));
+  }
 
-  await hubspotClient.crm.contacts.basicApi.update(user.id, { properties });
-  // will throw an exception if it fails
-  console.log("Done updating: ", Object.keys(properties).join(", "));
-};
+  async deleteUser(user: User) {
+    const hubspotClient = getHubspotClient();
 
-export const deleteUser = async (user: User) => {
-  const hubspotClient = getHubspotClient();
-
-  await hubspotClient.crm.contacts.basicApi.archive(user.id);
-  // will throw an exception if it fails
-  console.log("Done deleting");
-};
+    await hubspotClient.crm.contacts.basicApi.archive(user.id);
+    // will throw an exception if it fails
+    console.log("Done deleting");
+  }
+}
