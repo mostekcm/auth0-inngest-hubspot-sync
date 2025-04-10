@@ -7,11 +7,9 @@ export const handleLogEvent = client.createFunction(
     retries: 10, // this will retry for hours, can set to much longer if we need to retry for weeks, though there's likely a better way to handle this...
   },
   async ({ event, step }) => {
-    let response = {};
-
     await step.run(`process logevents/${event.data.payload.type}`, async () => {
       console.log("Received Event: ", event.data.payload);
     });
-    return response;
+    return {};
   }
 );
